@@ -1,0 +1,18 @@
+[
+  {
+    "id": "launch-date",
+    "question": "When does the DocMind verification project launch?",
+    "answerable": true,
+    "expected_terms": [
+      "14",
+      "September",
+      "2026"
+    ]
+  },
+  {
+    "id": "unknown-budget",
+    "question": "What is the project's total approved budget?",
+    "answerable": false,
+    "expected_terms": []
+  }
+]

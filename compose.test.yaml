@@ -1,0 +1,63 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: docmind_test
+      POSTGRES_USER: docmind_test
+      POSTGRES_PASSWORD: local-test-only
+    ports:
+      - "127.0.0.1:55432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docmind_test -d docmind_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  migrate:
+    profiles: ["smoke"]
+    image: docmind-api:verification
+    environment: &test_env
+      ENVIRONMENT: test
+      JWT_SECRET_KEY: test-only-jwt-secret-not-for-production-123456789
+      DEBUG: "false"
+      DATABASE_URL: postgresql://docmind_test:local-test-only@db:5432/docmind_test
+      GEMINI_API_KEY: unused-test-key
+      GROQ_API_KEY: unused-test-key
+      ALLOWED_ORIGINS: '["http://localhost:18080","http://127.0.0.1:18080"]'
+      ALLOWED_HOSTS: '["localhost","127.0.0.1"]'
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    profiles: ["smoke"]
+    image: docmind-api:verification
+    environment: *test_env
+    read_only: true
+    tmpfs: ["/tmp:size=128m"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=5)"]
+      interval: 2s
+      timeout: 6s
+      retries: 20
+  worker:
+    profiles: ["smoke"]
+    image: docmind-api:verification
+    environment: *test_env
+    command: ["python", "-m", "app.worker"]
+    read_only: true
+    tmpfs: ["/tmp:size=128m"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  web:
+    profiles: ["smoke"]
+    image: docmind-web:verification
+    ports: ["127.0.0.1:18080:8080"]
+    depends_on:
+      api:
+        condition: service_healthy

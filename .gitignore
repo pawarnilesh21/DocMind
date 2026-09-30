@@ -1,0 +1,75 @@
+# .gitignore — Files and directories excluded from Git version control.
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# --- Virtual Environment ---
+venv/
+env/
+.venv/
+.venv-prod/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+test-results/
+playwright-report/
+*.test.db
+*.backup
+.env.*
+!.env.example
+
+# --- Environment Variables ---
+.env
+
+# --- ChromaDB Data ---
+chroma_data/
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Alembic ---
+alembic/versions/__pycache__/
+
+# --- Node (Frontend) ---
+node_modules/
+frontend/dist/
+frontend/.env
+
+# Local experiments are archived; retain reproducible evaluation and verification evidence.
+/raw/*
+!/raw/__init__.py
+!/raw/evaluate_rag.py
+!/raw/PRODUCTION_READINESS.md
+!/raw/README.md
+
+# Private uploads, local databases, exports and generated evaluation reports.
+/uploads/
+/backups/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.dump
+*.log
+/evaluation/*.json
+!/evaluation/cases.example.json
+/evaluation/results/
+/evaluation/reports/
+coverage.xml
+.cache/

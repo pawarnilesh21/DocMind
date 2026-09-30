@@ -1,0 +1,84 @@
+# Local review stack. No production environment or existing database is modified.
+name: docmind
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: docmind
+      POSTGRES_USER: docmind
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your compose environment file}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docmind -d docmind"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 1g
+  migrate:
+    build: .
+    image: docmind-api:local
+    environment: &app_env
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: "false"
+      DATABASE_URL: postgresql://docmind:${POSTGRES_PASSWORD}@db:5432/docmind
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?Set GEMINI_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY:?Set GROQ_API_KEY}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY}
+      JWT_ISSUER: ${JWT_ISSUER:-docmind}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-docmind-web}
+      ALLOWED_ORIGINS: '${ALLOWED_ORIGINS:-["http://localhost:8080"]}'
+      ALLOWED_HOSTS: '${ALLOWED_HOSTS:-["localhost","127.0.0.1"]}'
+      LLM_MODEL: ${LLM_MODEL:-qwen/qwen3.8-27b}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-gemini-embedding-001}
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    image: docmind-api:local
+    environment: *app_env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=5)"]
+      interval: 20s
+      timeout: 6s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+    mem_limit: 768m
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    read_only: true
+    tmpfs: ["/tmp:size=128m"]
+  worker:
+    image: docmind-api:local
+    environment: *app_env
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    mem_limit: 1536m
+    cpus: 1.5
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    read_only: true
+    tmpfs: ["/tmp:size=128m"]
+    stop_grace_period: 15s
+  web:
+    build: ./frontend
+    ports: ["127.0.0.1:8080:8080"]
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    mem_limit: 128m
+volumes:
+  postgres_data:
